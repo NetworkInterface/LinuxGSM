@@ -3,9 +3,9 @@
 # Author: Daniel Gibbs
 # Contributors: http://linuxgsm.com/contrib
 # Website: https://linuxgsm.com
-# Description: Resolves an issue with Arma Reforger.
+# Description: Resolves issues with Arma Reforger.
 
-module_selfname="$(basename "$(readlink -f "${BASH_SOURCE[0]}")")"
+moduleselfname="$(basename "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 # Fixes: Profile directory doesn't exist.
 # Issue Link: https://feedback.bistudio.com/T164845

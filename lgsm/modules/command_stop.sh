@@ -14,8 +14,8 @@ fn_firstcommand_set
 fn_stop_graceful_ctrlc() {
 	fn_print_dots "Graceful: CTRL+c"
 	fn_script_log_info "Graceful: CTRL+c"
-	# Sends quit.
-	tmux send-keys -t "${sessionname}" C-c > /dev/null 2>&1
+	# Sends CTRL+c.
+	tmux -L "${socketname}" send-keys -t "${sessionname}" C-c > /dev/null 2>&1
 	# Waits up to 30 seconds giving the server time to shutdown gracefuly.
 	for seconds in {1..30}; do
 		check_status.sh
@@ -23,9 +23,13 @@ fn_stop_graceful_ctrlc() {
 			fn_print_ok "Graceful: CTRL+c: ${seconds}: "
 			fn_print_ok_eol_nl
 			fn_script_log_pass "Graceful: CTRL+c: OK: ${seconds} seconds"
+			if [ "${statusalert}" == "on" ] && [ "${firstcommandname}" == "STOP" ]; then
+				alert="stopped"
+				alert.sh
+			fi
 			break
 		fi
-		sleep 1
+		fn_sleep_time_1
 		fn_print_dots "Graceful: CTRL+c: ${seconds}"
 	done
 	check_status.sh
@@ -43,7 +47,7 @@ fn_stop_graceful_cmd() {
 	fn_print_dots "Graceful: sending \"${1}\""
 	fn_script_log_info "Graceful: sending \"${1}\""
 	# Sends specific stop command.
-	tmux send -t "${sessionname}" ENTER "${1}" ENTER > /dev/null 2>&1
+	tmux -L "${socketname}" send -t "${sessionname}" ENTER "${1}" ENTER > /dev/null 2>&1
 	# Waits up to ${seconds} seconds giving the server time to shutdown gracefully.
 	for ((seconds = 1; seconds <= ${2}; seconds++)); do
 		check_status.sh
@@ -51,9 +55,13 @@ fn_stop_graceful_cmd() {
 			fn_print_ok "Graceful: sending \"${1}\": ${seconds}: "
 			fn_print_ok_eol_nl
 			fn_script_log_pass "Graceful: sending \"${1}\": OK: ${seconds} seconds"
+			if [ "${statusalert}" == "on" ] && [ "${firstcommandname}" == "STOP" ]; then
+				alert="stopped"
+				alert.sh
+			fi
 			break
 		fi
-		sleep 1
+		fn_sleep_time_1
 		fn_print_dots "Graceful: sending \"${1}\": ${seconds}"
 	done
 	check_status.sh
@@ -71,15 +79,19 @@ fn_stop_graceful_goldsrc() {
 	fn_print_dots "Graceful: sending \"quit\""
 	fn_script_log_info "Graceful: sending \"quit\""
 	# sends quit
-	tmux send -t "${sessionname}" quit ENTER > /dev/null 2>&1
+	tmux -L "${socketname}" send -t "${sessionname}" quit ENTER > /dev/null 2>&1
 	# Waits 3 seconds as goldsrc servers restart with the quit command.
 	for seconds in {1..3}; do
-		sleep 1
+		fn_sleep_time_1
 		fn_print_dots "Graceful: sending \"quit\": ${seconds}"
 	done
 	fn_print_ok "Graceful: sending \"quit\": ${seconds}: "
 	fn_print_ok_eol_nl
 	fn_script_log_pass "Graceful: sending \"quit\": OK: ${seconds} seconds"
+	if [ "${statusalert}" == "on" ] && [ "${firstcommandname}" == "STOP" ]; then
+		alert="stopped"
+		alert.sh
+	fi
 }
 
 # telnet command for sdtd graceful shutdown.
@@ -152,9 +164,13 @@ fn_stop_graceful_sdtd() {
 					fn_print_ok "Graceful: telnet: ${telnetip}:${telnetport} : "
 					fn_print_ok_eol_nl
 					fn_script_log_pass "Graceful: telnet: ${telnetip}:${telnetport} : ${seconds} seconds"
+					if [ "${statusalert}" == "on" ] && [ "${firstcommandname}" == "STOP" ]; then
+						alert="stopped"
+						alert.sh
+					fi
 					break
 				fi
-				sleep 1
+				fn_sleep_time_1
 				fn_print_dots "Graceful: telnet: ${seconds}"
 			done
 		# If telnet shutdown fails tmux shutdown will be used, this risks loss of world save.
@@ -184,10 +200,10 @@ fn_stop_graceful_avorion() {
 	fn_print_dots "Graceful: /save /stop"
 	fn_script_log_info "Graceful: /save /stop"
 	# Sends /save.
-	tmux send-keys -t "${sessionname}" /save ENTER > /dev/null 2>&1
-	sleep 5
+	tmux -L "${socketname}" send-keys -t "${sessionname}" /save ENTER > /dev/null 2>&1
+	fn_sleep_time_5
 	# Sends /quit.
-	tmux send-keys -t "${sessionname}" /stop ENTER > /dev/null 2>&1
+	tmux -L "${socketname}" send-keys -t "${sessionname}" /stop ENTER > /dev/null 2>&1
 	# Waits up to 30 seconds giving the server time to shutdown gracefuly.
 	for seconds in {1..30}; do
 		check_status.sh
@@ -195,9 +211,13 @@ fn_stop_graceful_avorion() {
 			fn_print_ok "Graceful: /save /stop: ${seconds}: "
 			fn_print_ok_eol_nl
 			fn_script_log_pass "Graceful: /save /stop: OK: ${seconds} seconds"
+			if [ "${statusalert}" == "on" ] && [ "${firstcommandname}" == "STOP" ]; then
+				alert="stopped"
+				alert.sh
+			fi
 			break
 		fi
-		sleep 1
+		fn_sleep_time_1
 		fn_print_dots "Graceful: /save /stop: ${seconds}"
 	done
 	check_status.sh
@@ -240,15 +260,19 @@ fn_stop_tmux() {
 	fn_print_dots "${servername}"
 	fn_script_log_info "tmux kill-session: ${sessionname}: ${servername}"
 	# Kill tmux session.
-	tmux kill-session -t "${sessionname}" > /dev/null 2>&1
-	sleep 0.5
+	tmux -L "${socketname}" kill-session -t "${sessionname}" > /dev/null 2>&1
+	fn_sleep_time_1
 	check_status.sh
 	if [ "${status}" == "0" ]; then
 		fn_print_ok_nl "${servername}"
 		fn_script_log_pass "Stopped ${servername}"
+		if [ "${statusalert}" == "on" ] && [ "${firstcommandname}" == "STOP" ]; then
+			alert="stopped"
+			alert.sh
+		fi
 	else
 		fn_print_fail_nl "Unable to stop ${servername}"
-		fn_script_log_fatal "Unable to stop ${servername}"
+		fn_script_log_fail "Unable to stop ${servername}"
 	fi
 }
 
@@ -256,27 +280,39 @@ fn_stop_tmux() {
 fn_stop_pre_check() {
 	if [ "${status}" == "0" ]; then
 		fn_print_info_nl "${servername} is already stopped"
-		fn_script_log_error "${servername} is already stopped"
+		fn_script_log_info "${servername} is already stopped"
 	else
 		# Select graceful shutdown.
 		fn_stop_graceful_select
-	fi
-	# Check status again, a kill tmux session if graceful shutdown failed.
-	check_status.sh
-	if [ "${status}" != "0" ]; then
-		fn_stop_tmux
+		# Check status again, a kill tmux session if graceful shutdown failed.
+		check_status.sh
+		if [ "${status}" != "0" ]; then
+			fn_stop_tmux
+		fi
 	fi
 }
 
+fn_print_dots ""
 check.sh
+
+# Create a stopping lockfile that only exists while the stop command is running.
+date '+%s' > "${lockdir:?}/${selfname}-stopping.lock"
+
 fn_print_dots "${servername}"
 
 info_game.sh
 fn_stop_pre_check
-# Remove lockfile.
-if [ -f "${lockdir}/${selfname}.lock" ]; then
-	rm -f "${lockdir:?}/${selfname}.lock"
+
+# Remove started lockfile.
+rm -f "${lockdir:?}/${selfname}-started.lock"
+
+# If user ran the stop command monitor will become disabled.
+if [ "${firstcommandname}" == "STOP" ]; then
+	rm -f "${lockdir:?}/${selfname}-monitoring.lock"
 fi
+
+# Remove stopping lockfile.
+rm -f "${lockdir:?}/${selfname}-stopping.lock"
 
 if [ -z "${exitbypass}" ]; then
 	core_exit.sh

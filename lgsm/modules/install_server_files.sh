@@ -106,6 +106,13 @@ fn_install_server_files() {
 		chmodx="nochmodx" run="norun"
 		force="noforce"
 		md5="b0e26d8919fe9313fb9d8ded2360f3db"
+	elif [ "${shortname}" == "q4" ]; then
+		remote_fileurl="http://linuxgsm.download/Quake4/quake4-1.4.2-x86-linuxded.tar.xz"
+		local_filedir="${tmpdir}"
+		local_filename="quake4-1.4.2-x86-linuxded.tar.xz"
+		chmodx="nochmodx" run="norun"
+		force="noforce"
+		md5="afe30b44f23c8ae2ce6f0f464473d8ba"
 	elif [ "${shortname}" == "qw" ]; then
 		remote_fileurl="http://linuxgsm.download/QuakeWorld/nquake.server.linux.190506.full.tar.xz"
 		local_filedir="${tmpdir}"
@@ -199,48 +206,48 @@ fn_install_server_files() {
 		md5="0188ae86dbc9376f11ae3032dba2d665"
 	else
 		fn_print_fail_nl "Installing ${gamename} Server failed, missing default configuration"
-		fn_script_log_fatal "Installing ${gamename} Server failed, missing default configuration"
+		fn_script_log_fail "Installing ${gamename} Server failed, missing default configuration"
 	fi
 	fn_fetch_file "${remote_fileurl}" "" "" "" "${local_filedir}" "${local_filename}" "${chmodx}" "${run}" "${forcedl}" "${md5}"
 	fn_dl_extract "${local_filedir}" "${local_filename}" "${serverfiles}"
 }
 
 echo -e ""
-echo -e "${lightyellow}Installing ${gamename} Server${default}"
-echo -e "================================="
-fn_sleep_time
+echo -e "${bold}${lightyellow}Installing ${gamename} Server${default}"
+fn_messages_separator
 
 if [ "${appid}" ]; then
 	remotelocation="SteamCMD"
 	forceupdate=1
 	update_steamcmd.sh
+	fn_check_steamcmd_appmanifest
 fi
 
 if [ "${shortname}" == "ts3" ]; then
 	update_ts3.sh
 elif [ "${shortname}" == "mc" ]; then
 	install_eula.sh
-	update_minecraft.sh
+	update_mc.sh
 elif [ "${shortname}" == "mcb" ]; then
-	update_minecraft_bedrock.sh
+	update_mcb.sh
 elif [ "${shortname}" == "pmc" ]; then
 	install_eula.sh
-	update_papermc.sh
+	update_pmc.sh
 elif [ "${shortname}" == "wmc" ] || [ "${shortname}" == "vpmc" ]; then
-	update_papermc.sh
+	update_pmc.sh
 elif [ "${shortname}" == "mta" ]; then
 	update_mta.sh
 elif [ "${shortname}" == "fctr" ]; then
-	update_factorio.sh
+	update_fctr.sh
 	install_factorio_save.sh
 elif [ "${shortname}" == "jk2" ]; then
-	update_jediknight2.sh
+	update_jk2.sh
 elif [ "${shortname}" == "vints" ]; then
-	update_vintagestory.sh
+	update_vints.sh
 elif [ "${shortname}" == "ut99" ]; then
 	fn_install_server_files
 	update_ut99.sh
-elif [ -z "${appid}" ] || [ "${shortname}" == "ahl" ] || [ "${shortname}" == "bb" ] || [ "${shortname}" == "ns" ] || [ "${shortname}" == "sfc" ] || [ "${shortname}" == "ts" ] || [ "${shortname}" == "vs" ] || [ "${shortname}" == "zmr" ]; then
+elif [ -z "${appid}" ] || [ "${shortname}" == "ahl" ] || [ "${shortname}" == "bb" ] || [ "${shortname}" == "q4" ] || [ "${shortname}" == "ns" ] || [ "${shortname}" == "sfc" ] || [ "${shortname}" == "ts" ] || [ "${shortname}" == "vs" ] || [ "${shortname}" == "zmr" ]; then
 	if [ "${shortname}" == "ut" ]; then
 		install_eula.sh
 	fi
@@ -249,7 +256,7 @@ fi
 
 if [ -z "${autoinstall}" ]; then
 	echo -e ""
-	echo -e "================================="
+	fn_messages_separator
 	if ! fn_prompt_yn "Was the install successful?" Y; then
 		install_retry.sh
 	fi

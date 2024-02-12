@@ -7,32 +7,51 @@
 
 moduleselfname="$(basename "$(readlink -f "${BASH_SOURCE[0]}")")"
 
+fn_install_dotnet_repo() {
+	if [ "${distroid}" == "ubuntu" ]; then
+		# if package aspnetcore-runtime-7.0 is unavailable in ubuntu repos, add the microsoft repo.
+		if ! apt-cache show aspnetcore-runtime-7.0 > /dev/null 2>&1; then
+			fn_fetch_file "https://packages.microsoft.com/config/ubuntu/${distroversion}/packages-microsoft-prod.deb" "" "" "" "/tmp" "packages-microsoft-prod.deb" "" "" "" ""
+			sudo dpkg -i /tmp/packages-microsoft-prod.deb
+		fi
+	elif [ "${distroid}" == "debian" ]; then
+		fn_fetch_file "https://packages.microsoft.com/config/debian/${distroversion}/packages-microsoft-prod.deb" "" "" "" "/tmp" "packages-microsoft-prod.deb" "" "" "" ""
+		sudo dpkg -i /tmp/packages-microsoft-prod.deb
+	fi
+}
+
 fn_install_mono_repo() {
 	if [ "${autodepinstall}" == "0" ]; then
 		fn_print_information_nl "Automatically adding Mono repository."
 		fn_script_log_info "Automatically adding Mono repository."
 		echo -en ".\r"
-		sleep 1
+		fn_sleep_time_1
 		echo -en "..\r"
-		sleep 1
+		fn_sleep_time_1
 		echo -en "...\r"
-		sleep 1
+		fn_sleep_time_1
 		echo -en "   \r"
 		if [ "${distroid}" == "ubuntu" ]; then
-			if [ "${distroversion}" == "20.04" ]; then
-				cmd="sudo apt install gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/ubuntu stable-focal main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+			if [ "${distroversion}" == "22.04" ]; then
+				cmd="sudo apt-get install gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/ubuntu stable-jammy main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+			elif [ "${distroversion}" == "20.04" ]; then
+				cmd="sudo apt-get install gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/ubuntu stable-focal main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
 			elif [ "${distroversion}" == "18.04" ]; then
-				cmd="sudo apt install gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/ubuntu stable-bionic main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+				cmd="sudo apt-get install gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/ubuntu stable-bionic main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
 			elif [ "${distroversion}" == "16.04" ]; then
 				cmd="sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;sudo apt install apt-transport-https ca-certificates;echo 'deb https://download.mono-project.com/repo/ubuntu stable-xenial main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
 			else
 				monoautoinstall="1"
 			fi
 		elif [ "${distroid}" == "debian" ]; then
-			if [ "${distroversion}" == "10" ]; then
-				cmd="sudo apt install apt-transport-https dirmngr gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/debian stable-buster main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+			if [ "${distroversion}" == "12" ]; then
+				cmd="sudo apt-get install apt-transport-https dirmngr gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/debian stable-bookworm main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+			elif [ "${distroversion}" == "11" ]; then
+				cmd="sudo apt-get install apt-transport-https dirmngr gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/debian stable-bullseye main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+			elif [ "${distroversion}" == "10" ]; then
+				cmd="sudo apt-get install apt-transport-https dirmngr gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/debian stable-buster main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
 			elif [ "${distroversion}" == "9" ]; then
-				cmd="sudo apt install apt-transport-https dirmngr gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/debian stable-stretch main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
+				cmd="sudo apt-get install apt-transport-https dirmngr gnupg ca-certificates;sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF;echo 'deb https://download.mono-project.com/repo/debian stable-stretch main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list;sudo apt update"
 			else
 				monoautoinstall="1"
 			fi
@@ -61,7 +80,7 @@ fn_install_mono_repo() {
 		if [ "${monoautoinstall}" != "1" ]; then
 			if [ $? != 0 ]; then
 				fn_print_failure_nl "Unable to install Mono repository."
-				fn_script_log_fatal "Unable to install Mono repository."
+				fn_script_log_fail "Unable to install Mono repository."
 			else
 				fn_print_complete_nl "Installing Mono repository completed."
 				fn_script_log_pass "Installing Mono repository completed."
@@ -93,16 +112,16 @@ fn_deps_email() {
 				array_deps_required+=(exim4)
 			elif [ -d /etc/sendmail ]; then
 				array_deps_required+=(sendmail)
-			elif [ "$(command -v dpkg-query 2> /dev/null)" ]; then
-				array_deps_required+=(mailutils postfix)
-			elif [ "$(command -v rpm 2> /dev/null)" ]; then
+			elif [ "$(command -v yum 2> /dev/null)" ] || [ "$(command -v dnf 2> /dev/null)" ]; then
 				array_deps_required+=(mailx postfix)
+			elif [ "$(command -v apt 2> /dev/null)" ]; then
+				array_deps_required+=(mailutils postfix)
 			fi
 		else
-			if [ "$(command -v dpkg-query 2> /dev/null)" ]; then
-				array_deps_required+=(mailutils postfix)
-			elif [ "$(command -v rpm 2> /dev/null)" ]; then
+			if [ "$(command -v yum 2> /dev/null)" ] || [ "$(command -v dnf 2> /dev/null)" ]; then
 				array_deps_required+=(mailx postfix)
+			elif [ "$(command -v apt 2> /dev/null)" ]; then
+				array_deps_required+=(mailutils postfix)
 			fi
 		fi
 	fi
@@ -119,7 +138,6 @@ fn_install_missing_deps() {
 			fn_print_warn "Missing dependencies: ${red}${array_deps_missing[*]}${default}"
 			fn_script_log_warn "Missing dependencies: ${array_deps_missing[*]}"
 		fi
-		fn_sleep_time
 
 		# Attempt automatic dependency installation
 		if [ "${autoinstall}" == "1" ]; then
@@ -129,8 +147,12 @@ fn_install_missing_deps() {
 		fi
 		autodepinstall="$?"
 
-		if [ "${monostatus}" == "1" ]; then
+		if [ "${monoinstalled}" == "false" ]; then
 			fn_install_mono_repo
+		fi
+
+		if [ "${dotnetinstalled}" == "false" ]; then
+			fn_install_dotnet_repo
 		fi
 
 		if [ "${commandname}" == "INSTALL" ]; then
@@ -138,13 +160,13 @@ fn_install_missing_deps() {
 				fn_print_information_nl "$(whoami) has sudo access."
 				fn_script_log_info "$(whoami) has sudo access."
 			else
-				fn_print_warning_nl "$(whoami) does not have sudo access. Manually install dependencies."
-				fn_script_log_warn "$(whoami) does not have sudo access. Manually install dependencies."
+				fn_print_warning_nl "$(whoami) does not have sudo access. Manually install dependencies or run ./${selfname} install as root."
+				fn_script_log_warn "$(whoami) does not have sudo access. Manually install dependencies or run ./${selfname} install as root."
 			fi
 		fi
 
 		# Add sudo dpkg --add-architecture i386 if using i386 packages.
-		if [ "$(command -v dpkg-query 2> /dev/null)" ]; then
+		if [ "$(command -v apt 2> /dev/null)" ]; then
 			if printf '%s\n' "${array_deps_required[@]}" | grep -q -P 'i386'; then
 				i386installcommand="sudo dpkg --add-architecture i386; "
 			fi
@@ -155,13 +177,13 @@ fn_install_missing_deps() {
 			fn_print_information_nl "Automatically installing missing dependencies."
 			fn_script_log_info "Automatically installing missing dependencies."
 			echo -en ".\r"
-			sleep 1
+			fn_sleep_time_1
 			echo -en "..\r"
-			sleep 1
+			fn_sleep_time_1
 			echo -en "...\r"
-			sleep 1
+			fn_sleep_time_1
 			echo -en "   \r"
-			if [ "$(command -v dpkg-query 2> /dev/null)" ]; then
+			if [ "$(command -v apt 2> /dev/null)" ]; then
 				cmd="echo steamcmd steam/question select \"I AGREE\" | sudo debconf-set-selections; echo steamcmd steam/license note '' | sudo debconf-set-selections; ${i386installcommand}sudo apt-get update; sudo apt-get -y install ${array_deps_missing[*]}"
 				eval "${cmd}"
 			elif [ "$(command -v dnf 2> /dev/null)" ]; then
@@ -181,7 +203,7 @@ fn_install_missing_deps() {
 
 		# If automatic dependency install is unavailable.
 		if [ "${autodepinstall}" != "0" ]; then
-			if [ "$(command -v dpkg-query 2> /dev/null)" ]; then
+			if [ "$(command -v apt 2> /dev/null)" ]; then
 				echo -e "${i386installcommand}sudo apt update; sudo apt install ${array_deps_missing[*]}"
 			elif [ "$(command -v dnf 2> /dev/null)" ]; then
 				echo -e "sudo dnf install ${array_deps_missing[*]}"
@@ -193,7 +215,7 @@ fn_install_missing_deps() {
 		if [ "${steamcmdfail}" ]; then
 			if [ "${commandname}" == "INSTALL" ]; then
 				fn_print_failure_nl "Missing dependencies required to run SteamCMD."
-				fn_script_log_fatal "Missing dependencies required to run SteamCMD."
+				fn_script_log_fail "Missing dependencies required to run SteamCMD."
 				core_exit.sh
 			else
 				fn_print_error_nl "Missing dependencies required to run SteamCMD."
@@ -230,7 +252,7 @@ fn_deps_detector() {
 	elif [ "${deptocheck}" == "steamcmd" ] && [ -z "${appid}" ]; then
 		array_deps_required=("${array_deps_required[@]/steamcmd/}")
 		steamcmdstatus=1
-	elif [ "${deptocheck}" == "steamcmd" ] && [ "${distroid}" == "debian" ] && ! grep -qE "^deb .*non-free" /etc/apt/sources.list; then
+	elif [ "${deptocheck}" == "steamcmd" ] && [ "${distroid}" == "debian" ] && ! grep -qE '[^deb]+non-free([^-]|$)' /etc/apt/sources.list; then
 		array_deps_required=("${array_deps_required[@]/steamcmd/}")
 		steamcmdstatus=1
 	# Java: Added for users using Oracle JRE to bypass check.
@@ -248,13 +270,23 @@ fn_deps_detector() {
 		if [ -n "${monoversion}" ] && [ "${monoversion}" -ge "5" ]; then
 			# Mono >= 5.0.0 already installed.
 			depstatus=0
-			monostatus=0
+			monoinstalled=true
 		else
 			# Mono not installed or installed Mono < 5.0.0.
 			depstatus=1
-			monostatus=1
+			monoinstalled=false
 		fi
-	elif [ "$(command -v dpkg-query 2> /dev/null)" ]; then
+	# .NET Core: A .NET Core repo needs to be installed.
+	elif [ "${deptocheck}" == "aspnetcore-runtime-7.0" ]; then
+		# .NET is not installed.
+		if [ -n "${dotnetversion}" ]; then
+			depstatus=0
+			dotnetinstalled=true
+		else
+			depstatus=1
+			dotnetinstalled=false
+		fi
+	elif [ "$(command -v apt 2> /dev/null)" ]; then
 		dpkg-query -W -f='${Status}' "${deptocheck}" 2> /dev/null | grep -q -P '^install ok installed'
 		depstatus=$?
 	elif [ "$(command -v dnf 2> /dev/null)" ]; then
@@ -274,14 +306,14 @@ fn_deps_detector() {
 		missingdep=0
 		if [ "${commandname}" == "INSTALL" ]; then
 			echo -e "${green}${deptocheck}${default}"
-			sleep 0.1
+			fn_sleep_time
 		fi
 	elif [ "${depstatus}" != "0" ]; then
 		# If dependency is not found.
 		missingdep=1
 		if [ "${commandname}" == "INSTALL" ]; then
 			echo -e "${red}${deptocheck}${default}"
-			sleep 0.1
+			fn_sleep_time
 		fi
 		# If SteamCMD requirements are not met install will fail.
 		if [ -n "${appid}" ]; then
@@ -303,23 +335,22 @@ fn_deps_detector() {
 if [ "${commandname}" == "INSTALL" ]; then
 	if [ "$(whoami)" == "root" ]; then
 		echo -e ""
-		echo -e "${lightyellow}Checking Dependencies as root${default}"
-		echo -e "================================="
+		echo -e "${bold}${lightyellow}Checking ${gamename} Dependencies as root${default}"
+		fn_messages_separator
 		fn_print_information_nl "Checking any missing dependencies for ${gamename} server only."
 		fn_print_information_nl "This will NOT install a ${gamename} server."
-		fn_sleep_time
 	else
 		echo -e ""
-		echo -e "${lightyellow}Checking Dependencies${default}"
-		echo -e "================================="
+		echo -e "${bold}${lightyellow}Checking ${gamename} Dependencies${default}"
+		fn_messages_separator
 	fi
 fi
 
 # Will warn user if their distro is no longer supported by the vendor.
 if [ -n "${distrosupport}" ]; then
 	if [ "${distrosupport}" == "unsupported" ]; then
-		fn_print_warning_nl "${distroname} is no longer supported by the vendor. Upgrading is recommended."
-		fn_script_log_warn "${distroname} is no longer supported by the vendor. Upgrading is recommended."
+		fn_print_warning_nl "${distroname} is no longer supported by the vendor or LinuxGSM. Upgrading is recommended."
+		fn_script_log_warn "${distroname} is no longer supported by the vendor or LinuxGSM. Upgrading is recommended."
 	fi
 fi
 

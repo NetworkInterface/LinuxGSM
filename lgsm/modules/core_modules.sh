@@ -8,7 +8,7 @@
 
 moduleselfname="$(basename "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-modulesversion="v23.3.5"
+modulesversion="v24.1.3"
 
 # Core
 
@@ -396,11 +396,6 @@ fix_kf2.sh() {
 	fn_fetch_module
 }
 
-fix_lo.sh() {
-	modulefile="${FUNCNAME[0]}"
-	fn_fetch_module
-}
-
 fix_mcb.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
@@ -417,6 +412,11 @@ fix_nmrih.sh() {
 }
 
 fix_onset.sh() {
+	modulefile="${FUNCNAME[0]}"
+	fn_fetch_module
+}
+
+fix_pvr.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
@@ -570,11 +570,6 @@ alert_ifttt.sh() {
 	fn_fetch_module
 }
 
-alert_mailgun.sh() {
-	modulefile="${FUNCNAME[0]}"
-	fn_fetch_module
-}
-
 alert_pushbullet.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
@@ -645,17 +640,17 @@ update_ts3.sh() {
 	fn_fetch_module
 }
 
-update_minecraft.sh() {
+update_mc.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
 
-update_minecraft_bedrock.sh() {
+update_mcb.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
 
-update_papermc.sh() {
+update_pmc.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
@@ -665,12 +660,12 @@ update_mta.sh() {
 	fn_fetch_module
 }
 
-update_factorio.sh() {
+update_fctr.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
 
-update_jediknight2.sh() {
+update_jk2.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
@@ -680,7 +675,7 @@ update_steamcmd.sh() {
 	fn_fetch_module
 }
 
-update_vintagestory.sh() {
+update_vints.sh() {
 	modulefile="${FUNCNAME[0]}"
 	fn_fetch_module
 }
@@ -809,6 +804,11 @@ fi
 # Creates lock dir if missing
 if [ ! -d "${lockdir}" ]; then
 	mkdir -p "${lockdir}"
+fi
+
+# if $USER id missing set to whoami
+if [ -z "${USER}" ]; then
+	USER="$(whoami)"
 fi
 
 # Calls on-screen messages (bootstrap)

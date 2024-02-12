@@ -25,7 +25,7 @@ fn_check_steamcmd_user() {
 		fn_print_fail_nl "Steam login not set. Update steamuser in ${configdirserver}"
 		echo -e "	* Change steamuser=\"username\" to a valid steam login."
 		if [ -d "${lgsmlogdir}" ]; then
-			fn_script_log_fatal "Steam login not set. Update steamuser in ${configdirserver}"
+			fn_script_log_fail "Steam login not set. Update steamuser in ${configdirserver}"
 		fi
 		core_exit.sh
 	fi
@@ -129,7 +129,7 @@ fn_check_steamcmd_clear() {
 		rm -rf "${steamcmddir:?}"
 		exitcode=$?
 		if [ "${exitcode}" != 0 ]; then
-			fn_script_log_fatal "Removing ${rootdir}/steamcmd"
+			fn_script_log_fail "Removing ${rootdir}/steamcmd"
 		else
 			fn_script_log_pass "Removing ${rootdir}/steamcmd"
 		fi
@@ -147,19 +147,14 @@ fn_check_steamcmd_exec() {
 fn_update_steamcmd_localbuild() {
 	# Gets local build info.
 	fn_print_dots "Checking local build: ${remotelocation}"
-	fn_appmanifest_check
+	fn_check_steamcmd_appmanifest
 	# Uses appmanifest to find local build.
 	localbuild=$(grep buildid "${appmanifestfile}" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d\  -f3)
-
-	# Set branch to public if no custom branch.
-	if [ -z "${branch}" ]; then
-		branch="public"
-	fi
 
 	# Checks if localbuild variable has been set.
 	if [ -z "${localbuild}" ]; then
 		fn_print_fail "Checking local build: ${remotelocation}: missing local build info"
-		fn_script_log_fatal "Missing local build info"
+		fn_script_log_fail "Missing local build info"
 		core_exit.sh
 	else
 		fn_print_ok "Checking local build: ${remotelocation}"
@@ -174,10 +169,19 @@ fn_update_steamcmd_remotebuild() {
 	fi
 
 	# Removes appinfo.vdf as a fix for not always getting up to date version info from SteamCMD.
-	if [ "$(find "${HOME}" -type f -name "appinfo.vdf" | wc -l)" -ne "0" ]; then
-		find "${HOME}" -type f -name "appinfo.vdf" -exec rm -f {} \;
+	if [ "$(find "${HOME}" -type f -name "appinfo.vdf" 2> /dev/null | wc -l)" -ne "0" ]; then
+		find "${HOME}" -type f -name "appinfo.vdf" -exec rm -f {} \; 2> /dev/null
 	fi
 
+	# Set branch to public if no custom branch.
+	if [ -z "${branch}" ]; then
+		branch="public"
+	fi
+
+	# added as was failing GitHub Actions test. Running SteamCMD twice seems to fix it.
+	if [ "${CI}" ]; then
+		${steamcmdcommand} +login "${steamuser}" "${steampass}" +app_info_update 1 +quit > /dev/null 2>&1
+	fi
 	# password for branch not needed to check the buildid
 	remotebuildversion=$(${steamcmdcommand} +login "${steamuser}" "${steampass}" +app_info_update 1 +app_info_print "${appid}" +quit | sed -e '/"branches"/,/^}/!d' | sed -n "/\"${branch}\"/,/}/p" | grep -m 1 buildid | tr -cd '[:digit:]')
 
@@ -186,7 +190,7 @@ fn_update_steamcmd_remotebuild() {
 		# Checks if remotebuildversion variable has been set.
 		if [ -z "${remotebuildversion}" ] || [ "${remotebuildversion}" == "null" ]; then
 			fn_print_fail "Checking remote build: ${remotelocation}"
-			fn_script_log_fatal "Checking remote build"
+			fn_script_log_fail "Checking remote build"
 			core_exit.sh
 		else
 			fn_print_ok "Checking remote build: ${remotelocation}"
@@ -196,7 +200,7 @@ fn_update_steamcmd_remotebuild() {
 		# Checks if remotebuild variable has been set.
 		if [ -z "${remotebuildversion}" ] || [ "${remotebuildversion}" == "null" ]; then
 			fn_print_failure "Unable to get remote build"
-			fn_script_log_fatal "Unable to get remote build"
+			fn_script_log_fail "Unable to get remote build"
 			core_exit.sh
 		fi
 	fi
@@ -204,7 +208,10 @@ fn_update_steamcmd_remotebuild() {
 
 fn_update_steamcmd_compare() {
 	fn_print_dots "Checking for update: ${remotelocation}"
+	# Update has been found or force update.
 	if [ "${localbuild}" != "${remotebuildversion}" ] || [ "${forceupdate}" == "1" ]; then
+		# Create update lockfile.
+		date '+%s' > "${lockdir:?}/update.lock"
 		fn_print_ok_nl "Checking for update: ${remotelocation}"
 		echo -en "\n"
 		echo -e "Update available"
@@ -248,7 +255,7 @@ fn_update_steamcmd_compare() {
 				fn_firstcommand_reset
 			fi
 			unset exitbypass
-			date +%s > "${lockdir}/lastupdate.lock"
+			date +%s > "${lockdir:?}/last-updated.lock"
 			alert="update"
 		elif [ "${commandname}" == "CHECK-UPDATE" ]; then
 			alert="check-update"
@@ -281,14 +288,13 @@ fn_update_steamcmd_compare() {
 }
 
 fn_appmanifest_info() {
-	appmanifestfile=$(find -L "${serverfiles}" -type f -name "appmanifest_${appid}.acf")
-	appmanifestfilewc=$(find -L "${serverfiles}" -type f -name "appmanifest_${appid}.acf" | wc -l)
+	appmanifestfile=$(find -L "${serverfiles}/steamapps" -type f -name "appmanifest_${appid}.acf")
+	appmanifestfilewc=$(find -L "${serverfiles}/steamapps" -type f -name "appmanifest_${appid}.acf" | wc -l)
 }
 
-fn_appmanifest_check() {
+fn_check_steamcmd_appmanifest() {
 	fn_appmanifest_info
 	# Multiple or no matching appmanifest files may sometimes be present.
-	# This error is corrected if required.
 	if [ "${appmanifestfilewc}" -ge "2" ]; then
 		fn_print_error "Multiple appmanifest_${appid}.acf files found"
 		fn_script_log_error "Multiple appmanifest_${appid}.acf files found"
@@ -301,7 +307,7 @@ fn_appmanifest_check() {
 		# if error can not be resolved.
 		if [ "${appmanifestfilewc}" -ge "2" ]; then
 			fn_print_fail "Unable to remove x${appmanifestfilewc} appmanifest_${appid}.acf files"
-			fn_script_log_fatal "Unable to remove x${appmanifestfilewc} appmanifest_${appid}.acf files"
+			fn_script_log_fail "Unable to remove x${appmanifestfilewc} appmanifest_${appid}.acf files"
 			echo -e "* Check user permissions"
 			for appfile in ${appmanifestfile}; do
 				echo -e "	${appfile}"
@@ -323,8 +329,100 @@ fn_appmanifest_check() {
 		fn_appmanifest_info
 		if [ "${appmanifestfilewc}" -eq "0" ]; then
 			fn_print_fail_nl "Still no appmanifest_${appid}.acf found"
-			fn_script_log_fatal "Still no appmanifest_${appid}.acf found"
+			fn_script_log_fail "Still no appmanifest_${appid}.acf found"
 			core_exit.sh
+		fi
+	fi
+
+	# Checking for half completed updates.
+	bytesdownloaded=$(grep BytesDownloaded "${appmanifestfile}" | tr -cd '[:digit:]')
+	bytestodownload=$(grep BytesToDownload "${appmanifestfile}" | tr -cd '[:digit:]')
+	if [ "${bytesdownloaded}" != "${bytestodownload}" ]; then
+		fn_print_error_nl "BytesDownloaded and BytesToDownload do not match"
+		fn_script_log_error "BytesDownloaded and BytesToDownload do not match"
+		fn_print_info_nl "Forcing update to correct issue"
+		fn_script_log_info "Forcing update to correct issue"
+		fn_dl_steamcmd
+	fi
+
+	bytesstaged=$(grep BytesStaged "${appmanifestfile}" | tr -cd '[:digit:]')
+	bytestostage=$(grep BytesToStage "${appmanifestfile}" | tr -cd '[:digit:]')
+	if [ "${bytesstaged}" != "${bytestostage}" ]; then
+		fn_print_error_nl "BytesStaged and BytesToStage do not match"
+		fn_script_log_error "BytesStaged and BytesToStage do not match"
+		fn_print_info_nl "Forcing update to correct issue"
+		fn_script_log_info "Forcing update to correct issue"
+		fn_dl_steamcmd
+	fi
+
+	# if engine is GoldSrc check SharedDepots exists in appmanifest_90.acf
+	if [ "${engine}" == "goldsrc" ]; then
+		shareddepotsexists=$(grep -c SharedDepots "${serverfiles}/steamapps/appmanifest_90.acf")
+		if [ ! -f "${serverfiles}/steamapps/appmanifest_90.acf" ] || [ "${shareddepotsexists}" == "0" ]; then
+			fn_print_error_nl "SharedDepots missing from appmanifest_90.acf"
+			fn_script_log_error "SharedDepots missing from appmanifest_90.acf"
+			fn_print_info_nl "Forcing update to correct issue"
+			fn_script_log_info "Forcing update to correct issue"
+			if [ "${shortname}" == "ahl" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "bb" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "cscz" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_80.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "css" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "dmc" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_40.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "dod" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_30.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "hldm" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "ns" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "opfor" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_50.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "ricochet" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_60.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "tfc" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_20.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "ts" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			elif [ "${shortname}" == "vs" ]; then
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_90.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_10.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+				fn_fetch_file_github "lgsm/data/appmanifest/${shortname}" "appmanifest_70.acf" "${serverfiles}/steamapps" "nochmodx" "norun" "noforce" "nohash"
+			fi
+			fn_dl_steamcmd
 		fi
 	fi
 }

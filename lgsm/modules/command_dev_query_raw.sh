@@ -16,40 +16,31 @@ info_distro.sh
 info_messages.sh
 
 echo -e ""
+echo -e "${lightgreen}IP Addresses Variables${default}"
+fn_messages_separator
+echo -e ""
+echo -e "IP: ${ip}"
+echo -e "HTTP IP: ${httpip}"
+echo -e "Public IP: ${publicip}"
+echo -e "Telnet IP: ${telnetip}"
+echo -e "Display IP: ${displayip}"
+
+echo -e ""
 echo -e "${lightgreen}Query IP Addresses${default}"
-echo -e "=================================================================="
+fn_messages_separator
 echo -e ""
 for queryip in "${queryips[@]}"; do
 	echo -e "${queryip}"
 done
 echo -e ""
 echo -e "${lightgreen}Game Server Ports${default}"
-echo -e "=================================================================="
+fn_messages_separator
 {
 	echo -e "${lightblue}Port Name \tPort Number \tStatus \tTCP \tUDP${default}"
 	if [ -v port ]; then
 		echo -e "Game: \t${port} \t$(ss -tupl | grep -c "${port}") \t$(ss -tupl | grep "${port}" | grep tcp | awk '{ print $2 }') \t$(ss -tupl | grep "${port}" | grep udp | awk '{ print $2 }')"
 	else
 		echo -e "Game:"
-	fi
-	if [ "${shortname}" == "rw" ]; then
-		if [ -v port2 ]; then
-			echo -e "Game+1: \t${port2} \t$(ss -tupl | grep -c "${port}") \t$(ss -tupl | grep "${port2}" | grep tcp | awk '{ print $2 }') \t$(ss -tupl | grep "${port2}" | grep udp | awk '{ print $2 }')"
-		else
-			echo -e "Game+1:"
-		fi
-
-		if [ -v port3 ]; then
-			echo -e "Game+2: \t${port3} \t$(ss -tupl | grep -c "${port}") \t$(ss -tupl | grep "${port3}" | grep tcp | awk '{ print $2 }') \t$(ss -tupl | grep "${port3}" | grep udp | awk '{ print $2 }')"
-		else
-			echo -e "Game+2:"
-		fi
-
-		if [ -v port4 ]; then
-			echo -e "Game+3: \t${port4} \t$(ss -tupl | grep -c "${port}") \t$(ss -tupl | grep "${port4}" | grep tcp | awk '{ print $2 }') \t$(ss -tupl | grep "${port4}" | grep udp | awk '{ print $2 }')"
-		else
-			echo -e "Game+3:"
-		fi
 	fi
 	if [ "${shortname}" == "pvr" ]; then
 		if [ -v port401 ]; then
@@ -203,18 +194,18 @@ echo -e "=================================================================="
 	| column -s $'\t' -t
 echo -e ""
 echo -e "${lightgreen}SS Output${default}"
-echo -e "================================="
-fn_info_message_ports
+fn_messages_separator
+fn_info_messages_ports
 eval "${portcommand}"
 echo -e ""
 echo -e "${lightgreen}Query Port - Raw Output${default}"
-echo -e "=================================================================="
+fn_messages_separator
 echo -e ""
 echo -e "PORT: ${port}"
 echo -e "QUERY PORT: ${queryport}"
 echo -e ""
 echo -e "${lightgreen}Gamedig Raw Output${default}"
-echo -e "================================="
+fn_messages_separator
 echo -e ""
 if [ ! "$(command -v gamedig 2> /dev/null)" ]; then
 	fn_print_failure_nl "gamedig not installed"
@@ -230,7 +221,7 @@ for queryip in "${queryips[@]}"; do
 done
 echo -e ""
 echo -e "${lightgreen}gsquery Raw Output${default}"
-echo -e "================================="
+fn_messages_separator
 echo -e ""
 for queryip in "${queryips[@]}"; do
 	echo -e "./query_gsquery.py -a \"${queryip}\" -p \"${queryport}\" -e \"${querytype}\""
@@ -242,7 +233,7 @@ for queryip in "${queryips[@]}"; do
 done
 echo -e ""
 echo -e "${lightgreen}TCP Raw Output${default}"
-echo -e "================================="
+fn_messages_separator
 echo -e ""
 for queryip in "${queryips[@]}"; do
 	echo -e "bash -c 'exec 3<> /dev/tcp/'${queryip}'/'${queryport}''"
@@ -258,10 +249,10 @@ for queryip in "${queryips[@]}"; do
 done
 echo -e ""
 echo -e "${lightgreen}Game Port - Raw Output${default}"
-echo -e "=================================================================="
+fn_messages_separator
 echo -e ""
 echo -e "${lightgreen}TCP Raw Output${default}"
-echo -e "================================="
+fn_messages_separator
 echo -e ""
 for queryip in "${queryips[@]}"; do
 	echo -e "bash -c 'exec 3<> /dev/tcp/'${queryip}'/'${port}''"
@@ -277,7 +268,9 @@ for queryip in "${queryips[@]}"; do
 done
 echo -e ""
 echo -e "${lightgreen}Steam Master Server Response${default}"
-echo -e "=================================================================="
+fn_messages_separator
+echo -e ""
+echo -e "curl -m 3 -s https://api.steampowered.com/ISteamApps/GetServersAtAddress/v0001?addr=${publicip}"
 echo -e ""
 echo -e "Response: ${displaymasterserver}"
 echo -e ""

@@ -15,18 +15,21 @@
 
 # Debugging
 if [ -f ".dev-debug" ]; then
-	exec 5> dev-debug.log
+	if [ -f /.dockerenv ]; then
+		exec 5> /data/log/dev-debug.log
+	else
+		exec 5> dev-debug.log
+	fi
 	BASH_XTRACEFD="5"
 	set -x
 fi
 
-version="v23.3.5"
+version="v24.1.3"
 shortname="core"
 gameservername="core"
 commandname="CORE"
 rootdir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 selfname=$(basename "$(readlink -f "${BASH_SOURCE[0]}")")
-sessionname=$(echo "${selfname}" | cut -f1 -d".")
 lgsmdir="${rootdir}/lgsm"
 [ -n "${LGSM_LOGDIR}" ] && logdir="${LGSM_LOGDIR}" || logdir="${rootdir}/log"
 lgsmlogdir="${logdir}/lgsm"
@@ -34,8 +37,10 @@ steamcmddir="${HOME}/.steam/steamcmd"
 [ -n "${LGSM_SERVERFILES}" ] && serverfiles="${LGSM_SERVERFILES}" || serverfiles="${rootdir}/serverfiles"
 modulesdir="${lgsmdir}/modules"
 tmpdir="${lgsmdir}/tmp"
-datadir="${lgsmdir}/data"
+[ -n "${LGSM_DATADIR}" ] && datadir="${LGSM_DATADIR}" || datadir="${lgsmdir}/data"
 lockdir="${lgsmdir}/lock"
+sessionname="${selfname}"
+[ -f "${datadir}/${selfname}.uid" ] && socketname="${sessionname}-$(cat "${datadir}/${selfname}.uid")"
 serverlist="${datadir}/serverlist.csv"
 serverlistmenu="${datadir}/serverlistmenu.csv"
 [ -n "${LGSM_CONFIG}" ] && configdir="${LGSM_CONFIG}" || configdir="${lgsmdir}/config-lgsm"
@@ -123,8 +128,8 @@ fn_bootstrap_fetch_file() {
 				if [ ${counter} -ge 2 ]; then
 					echo -e "FAIL"
 					if [ -f "${lgsmlog}" ]; then
-						fn_script_log_fatal "Downloading ${local_filename}"
-						fn_script_log_fatal "${fileurl}"
+						fn_script_log_fail "Downloading ${local_filename}"
+						fn_script_log_fail "${fileurl}"
 					fi
 					core_exit.sh
 				else
@@ -322,17 +327,18 @@ fn_install_file() {
 
 # Prevent LinuxGSM from running as root. Except if doing a dependency install.
 if [ "$(whoami)" == "root" ]; then
-	if [ "${userinput}" == "install" ] || [ "${userinput}" == "auto-install" ] || [ "${userinput}" == "i" ] || [ "${userinput}" == "ai" ]; then
-		if [ "${shortname}" == "core" ]; then
-			echo -e "[ FAIL ] Do NOT run this script as root!"
+	if [ -f "${modulesdir}/core_modules.sh" ] || [ -f "${modulesdir}/check_root.sh" ] || [ -f "${modulesdir}/core_messages.sh" ]; then
+		if [ "${userinput}" != "install" ] && [ "${userinput}" != "auto-install" ] && [ "${userinput}" != "i" ] && [ "${userinput}" != "ai" ]; then
+			core_modules.sh
+			core_messages.sh
+			fn_ansi_loader
+			check_root.sh
+		fi
+	else
+		if [ "${userinput}" != "install" ] && [ "${userinput}" != "auto-install" ] && [ "${userinput}" != "i" ] && [ "${userinput}" != "ai" ]; then
+			echo -e "[ FAIL ] Do NOT run as root!"
 			exit 1
 		fi
-	elif [ ! -f "${modulesdir}/core_modules.sh" ] || [ ! -f "${modulesdir}/check_root.sh" ] || [ ! -f "${modulesdir}/core_messages.sh" ]; then
-		echo -e "[ FAIL ] Do NOT run this script as root!"
-		exit 1
-	else
-		core_modules.sh
-		check_root.sh
 	fi
 fi
 
@@ -347,11 +353,11 @@ if [ "${shortname}" == "core" ]; then
 
 	if [ "${userinput}" == "list" ] || [ "${userinput}" == "l" ]; then
 		{
-			tail -n +1 "${serverlist}" | awk -F "," '{print $2 "\t" $3}'
+			tail -n +2 "${serverlist}" | awk -F "," '{print $2 "\t" $3}'
 		} | column -s $'\t' -t | more
 		exit
 	elif [ "${userinput}" == "install" ] || [ "${userinput}" == "i" ]; then
-		tail -n +1 "${serverlist}" | awk -F "," '{print $1 "," $2 "," $3}' > "${serverlistmenu}"
+		tail -n +2 "${serverlist}" | awk -F "," '{print $1 "," $2 "," $3}' > "${serverlistmenu}"
 		fn_install_menu result "LinuxGSM" "Select game server to install." "${serverlistmenu}"
 		userinput="${result}"
 		fn_server_info
@@ -412,6 +418,7 @@ else
 			fi
 		fi
 	fi
+
 	# Load the IP details before the first config is loaded.
 	check_ip.sh
 	# Configs have to be loaded twice to allow start startparameters to pick up all vars
@@ -486,23 +493,6 @@ else
 			eval preexecutable="$(sed -nr 's/^ *preexecutable=(.*)$/\1/p' "${configdirserver}/common.cfg")"
 		elif grep -qE "^[[:blank:]]*preexecutable=" "${configdirserver}/_default.cfg"; then
 			eval preexecutable="$(sed -nr 's/^ *preexecutable=(.*)$/\1/p' "${configdirserver}/_default.cfg")"
-		fi
-
-		# For legacy configs that still use parms= 15.03.21
-		if grep -qE "^[[:blank:]]*parms=" "${configdirserver}/secrets-${selfname}.cfg"; then
-			eval parms="$(sed -nr 's/^ *parms=(.*)$/\1/p' "${configdirserver}/secrets-${selfname}.cfg")"
-		elif grep -qE "^[[:blank:]]*parms=" "${configdirserver}/${selfname}.cfg"; then
-			eval parms="$(sed -nr 's/^ *parms=(.*)$/\1/p' "${configdirserver}/${selfname}.cfg")"
-		elif grep -qE "^[[:blank:]]*parms=" "${configdirserver}/secrets-common.cfg"; then
-			eval parms="$(sed -nr 's/^ *parms=(.*)$/\1/p' "${configdirserver}/secrets-common.cfg")"
-		elif grep -qE "^[[:blank:]]*parms=" "${configdirserver}/common.cfg"; then
-			eval parms="$(sed -nr 's/^ *parms=(.*)$/\1/p' "${configdirserver}/common.cfg")"
-		elif grep -qE "^[[:blank:]]*parms=" "${configdirserver}/_default.cfg"; then
-			eval parms="$(sed -nr 's/^ *parms=(.*)$/\1/p' "${configdirserver}/_default.cfg")"
-		fi
-
-		if [ -n "${parms}" ]; then
-			startparameters="${parms}"
 		fi
 	}
 
